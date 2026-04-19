@@ -4,6 +4,8 @@
 
 It uses the same Codex desktop transcription flow as the Codex app, but works anywhere on your Mac.
 
+This repo now also includes an **Omarchy / Hyprland / Wayland Linux port** that uses your local Codex auth and the same transcription backend.
+
 ## Demo
 
 https://github.com/user-attachments/assets/ed182fc9-6cc2-4ef0-a2d8-344461a5719e
@@ -50,6 +52,71 @@ xcodegen generate
 xcodebuild -project CodexVoice.xcodeproj -scheme CodexVoice -configuration Debug build
 ```
 
+## Omarchy / Wayland Port
+
+The Linux port lives in:
+
+```bash
+linux/codex_voice.py
+```
+
+It is designed for the current workstation setup here:
+
+- Arch Linux
+- Omarchy
+- Hyprland
+- Wayland
+- local `codex` CLI auth in `~/.codex/auth.json`
+
+### Linux Dependencies
+
+- `codex`
+- `pw-record`
+- `wtype`
+- `wl-copy`
+- `notify-send`
+- `pactl`
+
+### Install On Omarchy
+
+```bash
+./scripts/install-omarchy.sh
+```
+
+That script:
+
+- installs a `codex-voice` wrapper into `~/.local/bin`
+- adds a Hyprland config snippet at `~/.config/hypr/conf.d/codex-voice.conf`
+- binds `Control-M` press/release to start/stop recording
+- reloads Hyprland
+- runs a live auth/transcription probe
+
+### Linux Commands
+
+```bash
+codex-voice start
+codex-voice stop
+codex-voice cancel
+codex-voice status
+codex-voice probe
+```
+
+### Audio Source Override
+
+By default the Linux port uses your current PipeWire / Pulse default source.
+
+If that is not the mic you want, set:
+
+```bash
+export CODEX_VOICE_AUDIO_SOURCE="your-source-name"
+```
+
+You can list sources with:
+
+```bash
+pactl list sources short
+```
+
 ## Install And Run
 
 ```bash
@@ -73,6 +140,7 @@ Then hold `Control-M`, speak, and release in any focused text field.
 - If auth expires, the app tries to refresh it through the local `codex` CLI.
 - The app looks for `codex` via `CODEX_CLI_PATH`, then your `PATH`, then `/Applications/Codex.app/Contents/Resources/codex`.
 - Debug logging is off by default. To enable it temporarily, launch the app with `CODEX_VOICE_DEBUG_LOG=1`.
+- On Linux, transcript insertion uses `wtype`, with clipboard-paste fallback via `wl-copy`.
 
 ## License
 
