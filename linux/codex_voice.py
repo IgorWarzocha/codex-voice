@@ -43,7 +43,7 @@ class Config:
     runtime_dir: Path
     state_path: Path
     lock_path: Path
-    auth_path: Path
+    auth_paths: tuple[Path, ...]
     codex_cli_path: str | None
 
 
@@ -56,7 +56,10 @@ def build_config() -> Config:
         runtime_dir=runtime_dir,
         state_path=runtime_dir / "state.json",
         lock_path=runtime_dir / "state.lock",
-        auth_path=Path.home() / ".codex" / "auth.json",
+        auth_paths=(
+            Path.home() / ".codex" / "auth.json",
+            Path.home() / ".pi" / "agent" / "auth.json",
+        ),
         codex_cli_path=os.environ.get("CODEX_CLI_PATH") or shutil.which("codex"),
     )
 
@@ -295,22 +298,27 @@ def cancel_recording(config: Config) -> int:
 
 
 def read_credentials(config: Config) -> Credentials:
-    if not config.auth_path.exists():
-        raise CodexVoiceError(f"Codex auth file not found at {config.auth_path}")
+    found_auth = False
+    for auth_path in config.auth_paths:
+        if not auth_path.exists():
+            continue
+        found_auth = True
+        try:
+            data = json.loads(auth_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise CodexVoiceError(f"Failed to parse {auth_path}: {exc}") from exc
 
-    try:
-        data = json.loads(config.auth_path.read_text())
-    except json.JSONDecodeError as exc:
-        raise CodexVoiceError(f"Failed to parse {config.auth_path}: {exc}") from exc
+        tokens = data.get("tokens") or {}
+        pi_tokens = data.get("openai-codex") or {}
+        access_token = tokens.get("access_token") or pi_tokens.get("access")
+        account_id = tokens.get("account_id") or pi_tokens.get("accountId")
+        if access_token and account_id:
+            return Credentials(access_token=access_token, account_id=account_id)
 
-    tokens = data.get("tokens") or {}
-    access_token = tokens.get("access_token")
-    account_id = tokens.get("account_id")
-
-    if not access_token or not account_id:
-        raise CodexVoiceError("Codex auth is incomplete. Please log in again.")
-
-    return Credentials(access_token=access_token, account_id=account_id)
+    if not found_auth:
+        paths = ", ".join(str(path) for path in config.auth_paths)
+        raise CodexVoiceError(f"Codex or Pi auth file not found (checked {paths})")
+    raise CodexVoiceError("Codex or Pi auth is incomplete. Please log in again.")
 
 
 def refresh_credentials(config: Config) -> Credentials:

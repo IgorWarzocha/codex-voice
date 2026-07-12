@@ -136,7 +136,7 @@ Then hold `Control-M`, speak, and release in any focused text field.
 ## Notes
 
 - Audio is sent to the Codex transcription backend when you release the hotkey.
-- The app reads local Codex auth from `~/.codex/auth.json`.
+- The app reads local Codex auth from `~/.codex/auth.json`, falling back to Pi's OpenAI Codex auth in `~/.pi/agent/auth.json`.
 - If auth expires, the app tries to refresh it through the local `codex` CLI.
 - The app looks for `codex` via `CODEX_CLI_PATH`, then your `PATH`, then `/Applications/Codex.app/Contents/Resources/codex`.
 - Debug logging is off by default. To enable it temporarily, launch the app with `CODEX_VOICE_DEBUG_LOG=1`.

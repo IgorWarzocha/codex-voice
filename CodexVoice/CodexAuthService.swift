@@ -29,10 +29,24 @@ actor CodexAuthService {
             let account_id: String
         }
 
-        let tokens: Tokens
+        struct PiTokens: Decodable {
+            let access: String
+            let accountId: String
+        }
+
+        let tokens: Tokens?
+        let openaiCodex: PiTokens?
+
+        enum CodingKeys: String, CodingKey {
+            case tokens
+            case openaiCodex = "openai-codex"
+        }
     }
 
-    private let authFileURL = URL(fileURLWithPath: NSString(string: "~/.codex/auth.json").expandingTildeInPath)
+    private let authFileURLs = [
+        "~/.codex/auth.json",
+        "~/.pi/agent/auth.json",
+    ].map { URL(fileURLWithPath: NSString(string: $0).expandingTildeInPath) }
 
     func currentCredentials() throws -> CodexCredentials {
         try readCredentials()
@@ -44,21 +58,22 @@ actor CodexAuthService {
     }
 
     private func readCredentials() throws -> CodexCredentials {
-        guard FileManager.default.fileExists(atPath: authFileURL.path) else {
+        let existingURLs = authFileURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard !existingURLs.isEmpty else {
             throw CodexAuthError.authFileMissing
         }
 
-        let data = try Data(contentsOf: authFileURL)
-        let authFile = try JSONDecoder().decode(AuthFile.self, from: data)
-
-        guard !authFile.tokens.access_token.isEmpty, !authFile.tokens.account_id.isEmpty else {
-            throw CodexAuthError.credentialsUnavailable
+        for authFileURL in existingURLs {
+            let data = try Data(contentsOf: authFileURL)
+            let authFile = try JSONDecoder().decode(AuthFile.self, from: data)
+            let accessToken = authFile.tokens?.access_token ?? authFile.openaiCodex?.access
+            let accountID = authFile.tokens?.account_id ?? authFile.openaiCodex?.accountId
+            if let accessToken, let accountID, !accessToken.isEmpty, !accountID.isEmpty {
+                return CodexCredentials(accessToken: accessToken, accountID: accountID)
+            }
         }
 
-        return CodexCredentials(
-            accessToken: authFile.tokens.access_token,
-            accountID: authFile.tokens.account_id
-        )
+        throw CodexAuthError.credentialsUnavailable
     }
 
     private func refreshAuthState() async throws {
