@@ -72,6 +72,7 @@ It is designed for the current workstation setup here:
 
 - `codex`
 - `pw-record`
+- GNU `timeout`, included in Arch's `coreutils` package
 - `wtype`
 - `wl-copy`
 - `notify-send`
@@ -101,6 +102,10 @@ codex-voice status
 codex-voice probe
 ```
 
+Recording stops after five minutes even if the hotkey release is missed. Starting a new dictation automatically abandons any pending transcription. You can also use `cancel` to abandon it. Late responses will not be pasted or interfere with the new recording.
+
+Linux keeps only the current session in `$XDG_RUNTIME_DIR/codex-voice`. Completed and cancelled sessions remove their audio and state. The next `start`, `status` or `cancel` also clears abandoned recordings. There is no local transcript history.
+
 ### Audio Source Override
 
 By default the Linux port uses your current PipeWire / Pulse default source.
@@ -116,6 +121,14 @@ You can list sources with:
 ```bash
 pactl list sources short
 ```
+
+### Linux Tests
+
+```bash
+python -m unittest discover -s linux -p 'test_*.py'
+```
+
+The tests use temporary files and controlled subprocesses. They do not record microphone audio, call the transcription service or paste into your applications.
 
 ## Install And Run
 
@@ -140,7 +153,8 @@ Then hold `Control-M`, speak, and release in any focused text field.
 - If auth expires, the app tries to refresh it through the local `codex` CLI.
 - The app looks for `codex` via `CODEX_CLI_PATH`, then your `PATH`, then `/Applications/Codex.app/Contents/Resources/codex`.
 - Debug logging is off by default. To enable it temporarily, launch the app with `CODEX_VOICE_DEBUG_LOG=1`.
-- On Linux, transcript insertion uses `wtype`, with clipboard-paste fallback via `wl-copy`.
+- On Linux, dictation copies the transcript with `wl-copy` and sends only the `Ctrl+Shift+V` paste shortcut with `wtype`. This avoids individual letters being intercepted as shortcuts. It works with Omarchy terminals and browser text fields. For applications that require `Ctrl+V`, set `CODEX_VOICE_PASTE_SHORTCUT=ctrl+v` in the environment used to launch `codex-voice`.
+- Linux dictation replaces the clipboard contents and leaves the transcript there. It does not restore the previous clipboard, because restoration can race the receiving application's paste request. If automatic paste fails, paste the transcript manually.
 
 ## License
 
